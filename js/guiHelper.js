@@ -13,13 +13,13 @@ function makeGUI(engine, scene) {
 
     // General
     const general = gui.addFolder("General");
-    general.add(simParams, "demo", [1, 2, 3, 4])
+    general.add(simParams, "demo", [1917, 1947, 1948, 1967])
         .name("Demo")
         .onChange((value) => {
             if (value !== slimeSimulation.demo) {
                 slimeSimulation.dispose();
                 slimeSimulation = new SlimeSimulation(slimeSimulation._layer, scene);
-                SlimeSimulationDemo['demo' + value](slimeSimulation);
+                SlimeSimulationDemo['year' + value](slimeSimulation);
                 slimeSimulation.start();
                 makeGUI(engine, scene);
             }

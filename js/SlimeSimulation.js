@@ -32,9 +32,7 @@ class SlimeSimulation {
     }
 
     start() {
-        if (!this.supportCS) {
-            return;
-        }
+        if (!this.supportCS) {return;}
         this._init();
         this._layer.texture = this._displayTexture;
         this._startTime = new Date().getTime();
@@ -248,24 +246,4 @@ class SlimeSimulation {
 
         ComputeHelper.CopyTextureToBuffer(this._diffusedTrailMap, this._trailMap);
     }
-}
-
-class SlimeSettings {
-    stepsPerFrame = 2;
-    width = 1280;
-    height = 720;
-    numAgents = 250000;
-    spawnMode = SpawnMode.InwardCircle;
-    trailWeight = 5;
-    decayRate = 0.2;
-    diffuseRate = 3;
-    speciesSettings = new Array();
-}
-
-class SpeciesSettings {
-    moveSpeed;
-    turnSpeed;
-    sensorAngleSpacing;
-    sensorOffsetDst;
-    sensorSize;
 }

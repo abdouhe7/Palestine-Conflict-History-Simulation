@@ -1,4 +1,4 @@
-const SpawnMode = {"Random": 0, "Point": 1, "InwardCircle": 2, "RandomCircle": 3};
+const SpawnMode = {"Random": 0, "Point": 1, "InwardCircle": 2, "RandomCircle": 3, "Mask":4};
 var canvas = document.getElementById("renderCanvas");
 
 var startRenderLoop = function (engine, canvas) {
@@ -39,7 +39,7 @@ const createScene = function () {
 
     const layer = new BABYLON.Layer("layer", "", scene, true);
     slimeSimulation = new SlimeSimulation(layer, scene);
-    SlimeSimulationDemo.demo4(slimeSimulation);
+    SlimeSimulationDemo.year1917(slimeSimulation);
     slimeSimulation.start();
 
     makeGUI(engine, scene);
