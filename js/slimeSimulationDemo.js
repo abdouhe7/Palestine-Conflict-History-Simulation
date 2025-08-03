@@ -4,11 +4,12 @@ class SlimeSimulationDemo {
         const settings = slimeSimulation.settings;
         settings.speciesSettings = [20, 2, 30, 35, 1];
         settings.stepsPerFrame = 2;
-        settings.numAgents = 250000;
-        settings.spawnMode = SpawnMode.RandomCircle;
+        settings.numAgents = 50;
+        settings.spawnMode = SpawnMode.Mask;
         settings.trailWeight = 5;
         settings.decayRate = 0.2;
         settings.diffuseRate = 3;
+        settings.TextureMaskUrl = "Textures/1917.png";
     }
 
     static year1947(slimeSimulation) {

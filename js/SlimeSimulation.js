@@ -32,7 +32,9 @@ class SlimeSimulation {
     }
 
     start() {
-        if (!this.supportCS) {return;}
+        if (!this.supportCS) {
+            return;
+        }
         this._init();
         this._layer.texture = this._displayTexture;
         this._startTime = new Date().getTime();
@@ -76,6 +78,66 @@ class SlimeSimulation {
         return new BABYLON.Vector2(r * Math.cos(angle), r * Math.sin(angle));
     }
 
+    async InitTextureCheck(spawnColor) {
+        for (let attempts = 0; attempts < 100; attempts++) {
+            const InitPos = new BABYLON.Vector2(
+                Math.floor(Math.random() * this.settings.width),
+                Math.floor(Math.random() * this.settings.height)
+            );
+            try {
+                const pixelColor = await this.getPixelColor(this.settings.TextureMaskUrl, InitPos.x, InitPos.y);
+                if (this.ColorDifference(pixelColor, spawnColor) > this.settings.extractValueSpawn) {
+                    return InitPos;
+                }
+            } catch (err) {
+                console.error("Error reading pixel color:", err);
+                return null;
+            }
+        }
+        return null; // fail-safe after 100 attempts
+    }
+    static ColorDifference(a, b) {
+        const rDiff = a.r - b.r;
+        const gDiff = a.g - b.g;
+        const bDiff = a.b - b.b;
+        const aDiff = a.a - b.a;
+
+        // Euclidean distance in 4D RGBA space
+        return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff + aDiff * aDiff);
+    }
+
+    getPixelColor(url, x, y) {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.crossOrigin = 'anonymous'; // Needed if the image is loaded from a different domain
+
+            image.onload = function () {
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width;
+                canvas.height = image.height;
+
+                const context = canvas.getContext('2d');
+                context.drawImage(image, 0, 0);
+
+                const pixelData = context.getImageData(x, y, 1, 1).data;
+                const color = {
+                    r: pixelData[0],
+                    g: pixelData[1],
+                    b: pixelData[2],
+                    a: pixelData[3]
+                };
+
+                resolve(color);
+            };
+
+            image.onerror = function (e) {
+                reject(new Error('Failed to load image: ' + url));
+            };
+
+            image.src = url;
+        });
+    }
+
     async _init() {
         // Create render textures
         this._trailMap = new BABYLON.StorageBuffer(this._engine, this.settings.width * this.settings.height * 4 * 4);
@@ -90,6 +152,7 @@ class SlimeSimulation {
             let startPos = BABYLON.Vector2.Zero();
             let randomAngle = Math.random() * Math.PI * 2;
             let angle = 0;
+            let speciesIndex = 0;
 
             if (this.settings.spawnMode === SpawnMode.Point) {
                 startPos = centre;
@@ -101,13 +164,16 @@ class SlimeSimulation {
                 startPos = centre.add(this._randomInsideUnitCircle().scaleInPlace(this.settings.height * 0.5));
                 centre.subtractInPlace(startPos).normalize();
                 angle = Math.atan2(centre.y, centre.x);
-            } else if (this.settings.spawnMode == SpawnMode.RandomCircle) {
+            } else if (this.settings.spawnMode === SpawnMode.RandomCircle) {
                 startPos = centre.add(this._randomInsideUnitCircle().scaleInPlace(this.settings.height * 0.15));
+                angle = randomAngle;
+            } else if (this.settings.spawnMode === SpawnMode.Mask) {
+                startPos = this.InitTextureCheck(this.settings.speciesSettings[speciesIndex].SpawnColor);
                 angle = randomAngle;
             }
 
+
             let speciesMask;
-            let speciesIndex = 0;
             const numSpecies = this.settings.speciesSettings.length / 5;
 
             if (numSpecies === 1) {
@@ -226,7 +292,6 @@ class SlimeSimulation {
     _runSimulation() {
 
         if (!this._ready) return;
-
 
         const deltaTime = this._engine.getDeltaTime() / 1000;
         // simulation

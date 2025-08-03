@@ -1,4 +1,4 @@
- class SlimeSettings {
+class SlimeSettings {
     stepsPerFrame = 2;
     width = 1280;
     height = 720;
@@ -7,12 +7,17 @@
     trailWeight = 5;
     decayRate = 0.2;
     diffuseRate = 3;
+    // Extract spawn Settings
+    extractValueSpawn = 0.9
+    TextureMaskUrl = null;
     speciesSettings = new Array();
 }
- class SpeciesSettings {
-     moveSpeed;
-     turnSpeed;
-     sensorAngleSpacing;
-     sensorOffsetDst;
-     sensorSize;
- }
+
+class SpeciesSettings {
+    moveSpeed;
+    turnSpeed;
+    sensorAngleSpacing;
+    sensorOffsetDst;
+    sensorSize;
+    SpawnColor;
+}
