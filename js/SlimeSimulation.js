@@ -78,63 +78,101 @@ class SlimeSimulation {
         return new BABYLON.Vector2(r * Math.cos(angle), r * Math.sin(angle));
     }
 
-    async InitTextureCheck(spawnColor) {
-        for (let attempts = 0; attempts < 100; attempts++) {
-            const InitPos = new BABYLON.Vector2(
-                Math.floor(Math.random() * this.settings.width),
-                Math.floor(Math.random() * this.settings.height)
+    InitTextureCheck(spawnColor) {
+        if (!spawnColor) {
+            console.warn("spawnColor is undefined! Using fallback.");
+            spawnColor = new BABYLON.Color4(0, 1, 0, 1); // Default: black
+        }
+
+        // Fallback if texture failed to load
+        if (!this._spawnMaskData) {
+            console.warn("Using random fallback position (texture not loaded)");
+            return new BABYLON.Vector2(
+                Math.random() * this.settings.width,
+                Math.random() * this.settings.height
             );
-            try {
-                const pixelColor = await this.getPixelColor(this.settings.TextureMaskUrl, InitPos.x, InitPos.y);
-                if (this.ColorDifference(pixelColor, spawnColor) > this.settings.extractValueSpawn) {
-                    return InitPos;
-                }
-            } catch (err) {
-                console.error("Error reading pixel color:", err);
-                return null;
+        }
+
+        const width = this._spawnMaskTexture.getSize().width;
+        const height = this._spawnMaskTexture.getSize().height;
+
+        for (let attempts = 0; attempts < 1000; attempts++) {
+            const x = Math.floor(Math.random() * width);
+            const y = Math.floor(Math.random() * height);
+            const idx = (y * width + x) * 4;
+
+            const pixelColor = new BABYLON.Color4(
+                this._spawnMaskData[idx] / 255,
+                this._spawnMaskData[idx + 1] / 255,
+                this._spawnMaskData[idx + 2] / 255,
+                this._spawnMaskData[idx + 3] / 255
+            );
+        console.log("Readen pixel color:", pixelColor.x + ", " + pixelColor.y + ", " + pixelColor.z + ", " + pixelColor.w);
+            if (this.ColorDifference(pixelColor, spawnColor) > this.settings.extractValueSpawn) {
+                return new BABYLON.Vector2(x, y);
             }
         }
-        return null; // fail-safe after 100 attempts
+
+        console.warn("No valid spawn found after 100 attempts. Using center. ");
+        return new BABYLON.Vector2(width / 2, height / 2);
     }
-    static ColorDifference(a, b) {
+
+// Color difference helper (matches your C# version)
+    ColorDifference(a, b) {
         const rDiff = a.r - b.r;
         const gDiff = a.g - b.g;
         const bDiff = a.b - b.b;
-        const aDiff = a.a - b.a;
+        const aDiff = (a.a !== undefined ? a.a : 1) - (b.a !== undefined ? b.a : 1);
 
-        // Euclidean distance in 4D RGBA space
         return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff + aDiff * aDiff);
     }
 
-    getPixelColor(url, x, y) {
+    async _loadSpawnMask() {
+        if (this._spawnMaskData) return;
+
+        const maskUrl = this.settings.TextureMaskUrl;
+        console.log("Loading spawn mask texture:", maskUrl);
+
+        try {
+            // First load the image separately to ensure CORS compliance
+            const img = await this._loadImageWithCORS(maskUrl);
+
+            // Create a dynamic texture from the loaded image
+            const dynamicTex = new BABYLON.DynamicTexture(
+                "spawnMaskDynamic",
+                { width: img.width, height: img.height },
+                this._scene,
+                false
+            );
+
+            const ctx = dynamicTex.getContext();
+            ctx.drawImage(img, 0, 0);
+            dynamicTex.update();
+
+            // Store both the texture and pixel data
+            this._spawnMaskTexture = dynamicTex;
+            this._spawnMaskData = dynamicTex.readPixels();
+            console.log("Spawn mask preloaded successfully");
+        } catch (error) {
+            console.error("Failed to load spawn mask:", error);
+            throw error;
+        }
+    }
+
+    _loadImageWithCORS(url) {
         return new Promise((resolve, reject) => {
-            const image = new Image();
-            image.crossOrigin = 'anonymous'; // Needed if the image is loaded from a different domain
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = (err) => reject(new Error(`Image load failed: ${err}`));
+            img.src = url;
 
-            image.onload = function () {
-                const canvas = document.createElement('canvas');
-                canvas.width = image.width;
-                canvas.height = image.height;
-
-                const context = canvas.getContext('2d');
-                context.drawImage(image, 0, 0);
-
-                const pixelData = context.getImageData(x, y, 1, 1).data;
-                const color = {
-                    r: pixelData[0],
-                    g: pixelData[1],
-                    b: pixelData[2],
-                    a: pixelData[3]
-                };
-
-                resolve(color);
-            };
-
-            image.onerror = function (e) {
-                reject(new Error('Failed to load image: ' + url));
-            };
-
-            image.src = url;
+            // Optional: Add timeout
+            setTimeout(() => {
+                if (!img.complete) {
+                    reject(new Error("Image load timed out"));
+                }
+            }, 5000);
         });
     }
 
@@ -145,6 +183,12 @@ class SlimeSimulation {
         this._diffusedTrailMap = ComputeHelper.CreateRenderTexture("rttDiffusedTrail", this._diffusedTrailMap, this.settings.width, this.settings.height, this.filterMode, this.textureType, this._scene);
         this._displayTexture = ComputeHelper.CreateRenderTexture("rttDisplay", this._displayTexture, this.settings.width, this.settings.height, this.filterMode, this.textureType, this._scene);
 
+        // Preload spawn mask texture
+        try {
+            await this._loadSpawnMask();
+        } catch (error) {
+            console.warn("Failed to load spawn mask:", error);
+        }
         // Create agents with initial positions and angles
         const agents = [];
         for (let i = 0; i < this.settings.numAgents; i++) {
@@ -288,6 +332,7 @@ class SlimeSimulation {
 
         this._ready = true;
     }
+
 
     _runSimulation() {
 
